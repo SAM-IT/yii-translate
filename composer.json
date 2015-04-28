@@ -1,0 +1,21 @@
+{
+    "name": "sami-it/yii1-translate",
+    "description": "Translatable model and behavior for Yii1",
+    "require": {
+        "sam-it/yii1-json-behavior": "1.*"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Sam",
+            "email": "sam@mousa.nl"
+        }
+    ],
+    "autoload" : {
+        "psr-4" : {
+            "SamIT\\Yii1\\Behaviors\\" : ["src/behavior"],
+            "SamIT\\Yii1\\Models\\" : ["src/model"]
+        }
+    }
+
+}
