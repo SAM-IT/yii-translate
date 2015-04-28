@@ -1,5 +1,5 @@
 {
-    "name": "sami-it/yii1-translate",
+    "name": "sam-it/yii1-translate",
     "description": "Translatable model and behavior for Yii1",
     "require": {
         "sam-it/yii1-json-behavior": "1.*"
