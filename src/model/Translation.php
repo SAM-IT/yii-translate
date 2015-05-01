@@ -2,14 +2,15 @@
 
     namespace SamIT\Yii1\Models;
     use \Yii;
+    use SamIT\Yii1\Behaviors\JsonBehavior;
     /**
      * @property string $model
      * @propert string $model_id
      * @property string $language
      */
-    class Translation extends ActiveRecord 
+    class Translation extends \CActiveRecord
     {
-        protected static $tableName = 'befound_translation';
+        protected static $tableName = 'samit_translation';
         
         public $dataStore = [];
         
@@ -61,11 +62,11 @@
             $columns = [
                 'model_id' => 'int NOT NULL',
                 'model' => 'string(100) CHARACTER SET ascii NOT NULL',
-                'language' => 'string(10) CHARACTER SET ascii NOT NULL',
+                'language' => 'string(20) CHARACTER SET ascii NOT NULL',
                 'data' => 'binary NOT NULL',
             ];
-            \Yii::app()->db->createCommand()->createTable(self::$tableName, $columns);
-            \Yii::app()->db->createCommand()->addPrimaryKey('PRIMARY', self::$tableName, [
+            \Yii::app()->db->createCommand()->createTable(static::$tableName, $columns);
+            \Yii::app()->db->createCommand()->addPrimaryKey('PRIMARY', static::$tableName, [
                 'model_id',
                 'model',
                 'language'
@@ -76,6 +77,18 @@
             return [
                 'owner' => [self::BELONGS_TO, \CActiveRecord::class, 'model_id']
             ];
+        }
+
+        public function rules() {
+            return [
+                ['model', 'validateModel']
+            ];
+        }
+
+        public function validateModel($attribute, $params) {
+            if (!class_exists($this->$attribute)) {
+                $this->addError($attribute, \Yii::t('sam-it', "Class {class} does not exist.", ['{class}' => $this->$attribute])) ;
+            }
         }
         public function tableName() {
             return static::$tableName;
