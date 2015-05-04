@@ -83,7 +83,14 @@ class TranslatableBehavior  extends \CActiveRecordBehavior
     }
    
     protected function getBaseLanguage() {
-        return isset($this->_baseLanguage) ? $this->_baseLanguage : \Yii::app()->sourceLanguage;
+        if (isset($this->_baseLanguage) && is_callable($this->_baseLanguage)) {
+            $result = $this->_baseLanguage($this->owner);
+        } elseif (isset($this->_baseLanguage)) {
+            $result = $this->_baseLanguage;
+        } else {
+            $result = \Yii::app()->sourceLanguage;
+        }
+        return $result;
     }
 
     protected function setBaseLanguage($value) {
@@ -161,7 +168,9 @@ class TranslatableBehavior  extends \CActiveRecordBehavior
             
             if(isset($this->_current)) {
                 foreach ($this->attributes as $attribute) {
-                    $this->owner->$attribute = $this->_current->$attribute;
+                    if (isset($this->_current->$attribute)) {
+                        $this->owner->$attribute = $this->_current->$attribute;
+                    }
                 }
             }
         } else {
@@ -180,23 +189,55 @@ class TranslatableBehavior  extends \CActiveRecordBehavior
      * @param string[language][field] $value
      */
     public function setTranslatedFields($value) {
+        // Copy values from owner.
+        $this->backupValues();
+        // Get base language first.
+        if (isset($value[$this->getBaseLanguage()])) {
+            foreach ($value[$this->getBaseLanguage()] as $field => $translated) {
+                $this->owner->$field = $translated;
+            }
+            unset($value[$this->getBaseLanguage()]);
+        }
+
         foreach($value as $language => $values) {
-            if ($language == $this->getBaseLanguage()) {
-                $model = $this->owner;
-            } elseif (isset($this->owner->translations[$language])) {
+            if (isset($this->owner->translations[$language])) {
                 $model = $this->owner->translations[$language];
             } else {
                 $model = $this->addLanguage($language);
             }
-            foreach ($values as $field => $translated) {
-                $model->$field = $translated;
+
+
+            // We filter the values so we don't save empty translations.
+            $values = array_filter($values);
+            // Check if the translations are the same as the base language, if so don't save them.
+            foreach($values as $key => $translation) {
+                // Skip if the translation is equal to the base languages' original value.
+                if ($this->_originalValues[$key] == $translation) {
+                    unset($values[$key]);
+                // Or if the translation is equal to the base languages' new value.
+                } elseif ($translation == $this->owner->$key) {
+                    unset($values[$key]);
+                }
             }
-            /**
-             * Not ideal since will execute 1 query for each language.
-             */
-            if (!$model->save()) {
-                throw new \Exception(print_r($model->getErrors(), true));
+
+            if (empty($values)) {
+                // Remove translation since its values have been emptied.
+                if (!$model->isNewRecord) {
+                    $model->delete();
+                }
+            } else {
+
+                foreach ($values as $field => $translated) {
+                    $model->$field = $translated;
+                }
+                /**
+                 * Not ideal since will execute 1 query for each language.
+                 */
+                if (!$model->save()) {
+                    throw new \Exception(print_r($model->getErrors(), true));
+                }
             }
+
         }
     }
 
