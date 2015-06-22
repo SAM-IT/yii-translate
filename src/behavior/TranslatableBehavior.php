@@ -1,5 +1,8 @@
 <?php
 namespace SamIT\Yii1\Behaviors;
+
+use SamIT\Yii1\Models\Translation;
+
 /**
  * TranslatableBehavior
  * Automatically adds relation for translatable fields.
@@ -50,18 +53,38 @@ class TranslatableBehavior  extends \CActiveRecordBehavior
     protected $_current;
     
     protected $_originalValues = [];
-    
-    
+
+    /**
+     * Contains the translations that need to be update after save.
+     * @var Callable[]
+     */
+    protected $updates = [] ;
+
     public function afterFind($event) {
         $this->backupValues();
 	}
     
     public function afterSave($event) {
         parent::afterSave($event);
+        // Save all languages updated via setTranslatedFields().
+        if ($this->autoSave) {
+            foreach($this->updates as $language => $callback) {
+                $callback[0]->model_id = $this->owner->id;
+
+                if (!call_user_func($callback)) {
+                    throw new \Exception("Model callback failed.");
+                }
+            }
+            if (isset($this->_current)) {
+                $this->_current->save();
+            }
+        }
+
         $this->backupValues();
         if (isset($this->_current)) {
             $this->setLanguage($this->_current->language);
         }
+
     }
 	
     public function attach($owner) {
@@ -96,21 +119,28 @@ class TranslatableBehavior  extends \CActiveRecordBehavior
     protected function setBaseLanguage($value) {
         $this->_baseLanguage = $value;
     }
+
+    public function afterDelete($event) {
+        $class = $this->translationModel;
+        $class::model()->deleteAllByAttributes([
+            'model' => $this->getModel(),
+            'model_id' => $this->owner->primaryKey
+        ]);
+    }
     public function beforeSave($event)
 	{
-        if ($this->language == $this->baseLanguage) {
-            return true;
-        }
-        // Autosave, changed language.
-        if ($this->autoSave) {
-            foreach($this->attributes as $attribute) {
-                $this->_current->$attribute = $this->owner->$attribute;
+
+
+        // If the language is the same as the base language no need to auto save.
+        if ($this->language != $this->baseLanguage) {
+            // Autosave, changed language.
+            if ($this->autoSave) {
+                foreach ($this->attributes as $attribute) {
+                    $this->_current->$attribute = $this->owner->$attribute;
+                }
             }
-            if (!$this->_current->save()) {
-                return false;
-            }
+            $this->restoreValues();
         }
-        $this->restoreValues();
         return true;
 	}
     
@@ -131,7 +161,7 @@ class TranslatableBehavior  extends \CActiveRecordBehavior
         }
     }
 
-    protected function getModel() {
+    public function getModel() {
         return isset($this->model) ? $this->model : get_class($this->owner);
     }
 
@@ -153,7 +183,7 @@ class TranslatableBehavior  extends \CActiveRecordBehavior
     }
     public function setLanguage($language) {
         // Language is not the source language, load translation model.
-        if ($language != \Yii::app()->sourceLanguage) {
+        if ($language != $this->getBaseLanguage()) {
             $translations = $this->owner->getRelated('translations');
             if (isset($translations[$language])) {
                 $this->_current = $translations[$language];
@@ -189,14 +219,15 @@ class TranslatableBehavior  extends \CActiveRecordBehavior
      * @param string[language][field] $value
      */
     public function setTranslatedFields($value) {
-        // Copy values from owner.
-        $this->backupValues();
         // Get base language first.
         if (isset($value[$this->getBaseLanguage()])) {
             foreach ($value[$this->getBaseLanguage()] as $field => $translated) {
                 $this->owner->$field = $translated;
             }
             unset($value[$this->getBaseLanguage()]);
+            // Copy values from owner.
+            $this->backupValues();
+
         }
 
         foreach($value as $language => $values) {
@@ -223,19 +254,20 @@ class TranslatableBehavior  extends \CActiveRecordBehavior
             if (empty($values)) {
                 // Remove translation since its values have been emptied.
                 if (!$model->isNewRecord) {
-                    $model->delete();
+                    $this->updates[$language] = [$model, 'delete'];
                 }
             } else {
 
                 foreach ($values as $field => $translated) {
                     $model->$field = $translated;
                 }
+                $this->updates[$language] = [$model, 'save'];
                 /**
                  * Not ideal since will execute 1 query for each language.
                  */
-                if (!$model->save()) {
-                    throw new \Exception(print_r($model->getErrors(), true));
-                }
+//                if (!$model->save()) {
+//                    throw new \Exception(print_r($model->getErrors(), true));
+//                }
             }
 
         }
@@ -246,6 +278,7 @@ class TranslatableBehavior  extends \CActiveRecordBehavior
         foreach($this->attributes as $attribute) {
             $base[$attribute] = $this->owner->$attribute;
         }
+
         $result = [$this->getBaseLanguage() => $base];
         foreach($this->owner->translations as $language => $translation) {
             $result[$language] = $translation->dataStore;

@@ -13,7 +13,15 @@
         protected static $tableName = 'samit_translation';
         
         public $dataStore = [];
-        
+
+        public static function model($class = null) {
+            if (!isset($class)) {
+                $class = get_called_class();
+            }
+            return parent::model($class);
+
+        }
+
         public function __construct($scenario = 'insert') {
             parent::__construct($scenario);
         }
