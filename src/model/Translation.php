@@ -11,7 +11,7 @@
     class Translation extends \CActiveRecord
     {
         protected static $tableName = 'samit_translation';
-        
+
         public $dataStore = [];
 
         public static function model($class = null) {
@@ -25,7 +25,7 @@
         public function __construct($scenario = 'insert') {
             parent::__construct($scenario);
         }
-        
+
         public function __get($name) {
 			try {
 				return parent::__get($name);
@@ -43,7 +43,7 @@
 		{
 			return parent::__isset($name) || isset($this->dataStore[$name]);
 		}
-		
+
 		public function __set($name, $value) {
 			$e;
 			try {
@@ -54,7 +54,7 @@
 
 			$this->dataStore[$name] = $value;
 		}
-        
+
         public function behaviors() {
             return array_merge(parent::behaviors(), [
                 JsonBehavior::CLASS => [
@@ -69,8 +69,8 @@
             }
             $columns = [
                 'model_id' => 'int NOT NULL',
-                'model' => 'string(100) CHARACTER SET ascii NOT NULL',
-                'language' => 'string(20) CHARACTER SET ascii NOT NULL',
+                'model' => 'string(100) NOT NULL',
+                'language' => 'string(20) NOT NULL',
                 'data' => 'binary NOT NULL',
             ];
             \Yii::app()->db->createCommand()->createTable(static::$tableName, $columns);
@@ -80,7 +80,7 @@
                 'language'
             ]);
         }
-        
+
         public function relations() {
             return [
                 'owner' => [self::BELONGS_TO, \CActiveRecord::class, 'model_id']
@@ -101,5 +101,5 @@
         public function tableName() {
             return static::$tableName;
         }
-        
+
     }
