@@ -2,7 +2,7 @@
     "name": "sam-it/yii1-translate",
     "description": "Translatable model and behavior for Yii1",
     "require": {
-        "sam-it/yii1-json-behavior": "^1.7"
+        "sam-it/yii1-json-behavior": "^1.0.0"
     },
     "license": "MIT",
     "authors": [
